@@ -1,0 +1,46 @@
+services:
+  app:
+    image: php:8.2-apache
+    container_name: experiential-learning-inventory
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "8080:80"
+    environment:
+      PHPWS_DSN: "pgsql:host=db;dbname=experiential_learning_inventory;user=experiential_user;password=experiential_password"
+      APP_ENV: development
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      bash -lc "
+      apt-get update &&
+      apt-get install -y --no-install-recommends libpq-dev libzip-dev unzip git curl &&
+      docker-php-ext-install pdo pdo_pgsql zip &&
+      curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer &&
+      if [ -f composer.lock ]; then composer install --no-interaction --prefer-dist --no-progress; fi &&
+      a2enmod rewrite &&
+      apache2-foreground
+      "
+
+  db:
+    image: postgres:16-alpine
+    container_name: experiential-learning-inventory-db
+    environment:
+      POSTGRES_DB: experiential_learning_inventory
+      POSTGRES_USER: experiential_user
+      POSTGRES_PASSWORD: experiential_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U experiential_user -d experiential_learning_inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres_data:
